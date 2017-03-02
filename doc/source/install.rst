@@ -8,20 +8,22 @@ Prerequisites
 
 DyNet relies on a number of external libraries including Boost, CMake,
 Eigen, and Mercurial (to install Eigen). Boost, CMake, and Mercurial can
-be installed from standard repositories, for example on Ubuntu Linux:
+be installed from standard repositories. 
+
+For example on **Ubuntu Linux**:
 
 ::
 
     sudo apt-get install libboost-all-dev cmake mercurial
 
-Or on OSX, first make sure the Apple Command Line Tools are installed, then
+Or on **macOS**, first make sure the Apple Command Line Tools are installed, then
 get Boost, CMake, and Mercurial with either homebrew or macports:
 
 ::
 
     xcode-select --install
-    brew install boost cmake hg
-    sudo port install boost cmake mercurial
+    brew install boost cmake hg  # Using homebrew.
+    sudo port install boost cmake mercurial # Using macports.
 
 To compile DyNet you also need the `development version of the Eigen
 library <https://bitbucket.org/eigen/eigen>`__. **If you use any of the
@@ -32,9 +34,20 @@ the following command:
 ::
 
     hg clone https://bitbucket.org/eigen/eigen/ -r 346ecdb
+    cd eigen
+    mkdir build && cd build
+    cmake ..
+    make install # sudo permissions might be necessary on Linux.
+    cd ../..
     
-The `-r NUM` specified a revision number that is known to work.
-Adventurous users can remove it and use the very latest version, at the risk of the code breaking / not compiling.
+The `-r NUM` specified a revision number that is known to work.  Adventurous
+users can remove it and use the very latest version, at the risk of the code
+breaking / not compiling. On macOS, you can install the latest development
+of Eigen using Homebrew:
+
+::
+
+    brew install --HEAD eigen
 
 Building
 --------
@@ -55,6 +68,7 @@ to generate the makefiles
     cd build
     cmake .. -DEIGEN3_INCLUDE_DIR=/path/to/eigen
 
+
 Then compile, where "2" can be replaced by the number of cores on your
 machine
 
@@ -66,7 +80,7 @@ To see that things have built properly, you can run
 
 ::
 
-    ./examples/xor
+    ./examples/train_xor
 
 which will train a multilayer perceptron to predict the xor function.
 
@@ -107,17 +121,17 @@ GPU/MKL support and build options
 GPU (CUDA) support
 ~~~~~~~~~~~~~~~~~~
 
-``dynet`` supports running programs on GPUs with CUDA. If you have CUDA
+DyNet supports running programs on GPUs with CUDA. If you have CUDA
 installed, you can build DyNet with GPU support by adding
 ``-DBACKEND=cuda`` to your cmake options. This will result in three
-libraries named "libdynet," "libgdynet," and "libdynetcuda" being
+libraries named "libdynet" and "libgdynet" being
 created. When you want to run a program on CPU, you can link to the
 "libdynet" library as shown above. When you want to run a program on
-GPU, you can link to the "libgdynet" and "libdynetcuda" libraries.
+GPU, you can link to the "libgdynet" library.
 
 ::
 
-    -L/path/to/dynet/build/dynet -lgdynet -ldynetcuda
+    -L/path/to/dynet/build/dynet -lgdynet
 
 (Eventually you will be able to use a single library to run on either
 CPU or GPU, but this is not fully implemented yet.)
@@ -138,6 +152,8 @@ If CMake is unable to find MKL automatically, try setting `MKL_ROOT`, such as
 ::
 
     -DMKL_ROOT="/path/to/MKL"
+
+One common install location is ``/opt/intel/mkl/``.
 
 If either `MKL` or `MKL_ROOT` are set, CMake will look for MKL.
 
@@ -169,7 +185,7 @@ there are diminishing returns or even slowdown.
 Non-standard Boost location
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-``dynet`` requires Boost, and will find it if it is in the standard
+DyNet requires Boost, and will find it if it is in the standard
 location. If Boost is in a non-standard location, say ``$HOME/boost``,
 you can specify the location by adding the following to your CMake
 options:

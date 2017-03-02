@@ -5,7 +5,18 @@ from libcpp cimport bool
 ctypedef float real
 
 cdef extern from "dynet/init.h" namespace "dynet":
-    cdef void initialize(int& argc, char **& argv, unsigned random_seed)
+    cdef cppclass CDynetParams "dynet::DynetParams":
+        unsigned random_seed
+        string mem_descriptor
+        float weight_decay
+        bool shared_parameters
+        bool ngpus_requested
+        bool ids_requested
+        int requested_gpus
+        vector[int] gpu_mask
+    cdef CDynetParams extract_dynet_params(int& argc, char**& argv, bool shared_parameters)
+    cdef void initialize(CDynetParams params)
+    cdef void initialize(int& argc, char **& argv, bool shared_parameters)
 
 cdef extern from "dynet/dim.h" namespace "dynet":
     cdef cppclass CDim "dynet::Dim":
@@ -23,6 +34,7 @@ cdef extern from "dynet/dim.h" namespace "dynet":
         int ndims()
         int rows()
         int cols()
+        unsigned operator[](unsigned i)
         void set(unsigned i, unsigned s)
         int size(unsigned i)
         CDim transpose()
@@ -39,12 +51,15 @@ cdef extern from "dynet/model.h" namespace "dynet":
     cdef cppclass CParameterStorage "dynet::ParameterStorage":
         CParameterStorage()
         CTensor values
+        CTensor g
         CDim dim
 
     cdef cppclass CLookupParameterStorage "dynet::LookupParameterStorage":
         CLookupParameterStorage()
         vector[CTensor] values
+        vector[CTensor] grads
         CDim dim
+        CDim all_dim
 
     cdef cppclass CParameters "dynet::Parameter":
         CParameters()
@@ -78,10 +93,10 @@ cdef extern from "dynet/model.h" namespace "dynet":
         CParameterInitIdentity()
 
     cdef cppclass CParameterInitGlorot "dynet::ParameterInitGlorot" (CParameterInit):
-        CParameterInitGlorot(bool is_lookup) # is_lookup = False
+        CParameterInitGlorot(bool is_lookup, float gain) # is_lookup = False
 
     cdef cppclass CParameterInitSaxe "dynet::ParameterInitSaxe" (CParameterInit):
-        ParameterInitSaxe()
+        CParameterInitSaxe(float scale)
 
     cdef cppclass CParameterInitFromFile "dynet::ParameterInitFromFile" (CParameterInit):
         CParameterInitFromFile(string filename)
@@ -130,6 +145,10 @@ cdef extern from "dynet/dynet.h" namespace "dynet":
         # checkpointing
         void checkpoint()
         void revert()
+
+        # immediate computation
+        void set_immediate_compute(bool ic)
+        void set_check_validity(bool cv)
 
         void print_graphviz() const
 
@@ -205,7 +224,9 @@ cdef extern from "dynet/expr.h" namespace "dynet::expr":
 
     # identity function, but derivative is not propagated through it
     CExpression c_nobackprop "dynet::expr::nobackprop" (CExpression& x) #
-
+    # identity function, but derivative takes negative as propagated through it
+    CExpression c_flip_gradient "dynet::expr::flip_gradient" (CExpression& x) #
+    
     CExpression c_op_neg "dynet::expr::operator-" (CExpression& x) #
     CExpression c_op_add "dynet::expr::operator+" (CExpression& x, CExpression& y) #
     CExpression c_op_scalar_add "dynet::expr::operator+" (CExpression& x, float y) #
@@ -250,6 +271,8 @@ cdef extern from "dynet/expr.h" namespace "dynet::expr":
 
     CExpression c_affine_transform "dynet::expr::affine_transform" (const vector[CExpression]& xs)
 
+    CExpression c_inverse "dynet::expr::inverse" (CExpression& x) #
+    CExpression c_logdet "dynet::expr::logdet" (CExpression& x) #
     CExpression c_trace_of_product "dynet::expr::trace_of_product" (CExpression& x, CExpression& y);
 
     CExpression c_dot_product "dynet::expr::dot_product" (CExpression& x, CExpression& y) #

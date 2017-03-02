@@ -171,6 +171,8 @@ class Expression(object): #{{{
           return _neg(_scalarsub(other, self))
       else: raise NotImplementedError()
   def init_row(self, i, row): pass
+  def init_from_array(self, *args, **kwargs): pass
+  def set_updated(self, *args, **kwargs): pass
 
 
 def GVExpr(name, args, dim): 
@@ -180,12 +182,12 @@ def GVExpr(name, args, dim):
 
 
 class Model(object):
-    def add_parameters(self, dim, scale=0):
+    def add_parameters(self, dim, scale=0, *args, **kwargs):
         assert(isinstance(dim,(tuple,int)))
         pp = Expression('parameters', [dim], make_dim(dim))
         return pp
 
-    def add_lookup_parameters(self, dim):
+    def add_lookup_parameters(self, dim, *args, **kwargs):
         assert(isinstance(dim, tuple))
         pp = Expression('lookup_parameters', [dim], make_dim(dim[1]))
         return pp
@@ -200,7 +202,7 @@ SECRET = 923148
 #_cg = ComputationGraph(SECRET)
 
 def cg_version(): return _cg._cg_version
-def renew_cg(): return _cg.renew()
+def renew_cg(immediate_compute=False, check_validity=False): return _cg.renew(immediate_compute, check_validity)
 
 def cg():
     global _cg
@@ -211,7 +213,7 @@ class ComputationGraph(object):
         if guard != SECRET: raise RuntimeError("Do not instantiate ComputationGraph directly. Use pydynet.cg()")
         self._cg_version = 0
 
-    def renew(self):
+    def renew(self, immediate_compute=False, check_validity=False):
       vindex_count = -1
       del graphviz_items[:]
       return self
@@ -250,6 +252,7 @@ def pick_batch(a, indices): return GVExpr('pick_batch', [a, indices], make_dim(l
 def hinge(x, index, m=1.0): return GVExpr('hinge', [x, index, m], copy_dim(x))
 
 def nobackprop(x): return GVExpr('nobackprop', [x], copy_dim(x))
+def flip_gradient(x): return GVExpr('flip_gradient', [x], copy_dim(x))
 
 # binary-exp
 def cdiv(x, y): return GVExpr('cdiv', [x,y], ensure_same_dim(x,y))
@@ -263,7 +266,7 @@ def colwise_add(x, y):
   return GVExpr('colwise_add', [x,y], d)
 
 def trace_of_product(x, y): return GVExpr('trace_of_product', [x,y], ensure_same_dim(x,y))
-def cwise_multiply(x, y): return GVExpr('cwise_multiply', [x,y], ensure_same_dim(x,y))
+def cmult(x, y): return GVExpr('cmult', [x,y], ensure_same_dim(x,y))
 def dot_product(x, y): return GVExpr('dot_product', [x,y], ensure_same_dim(x,y))
 def squared_distance(x, y): return GVExpr('squared_distance', [x,y], ensure_same_dim(x,y))
 def l1_distance(x, y): return GVExpr('l1_distance', [x,y], ensure_same_dim(x,y))
@@ -697,15 +700,15 @@ class SimpleSGDTrainer(Trainer):
     """
     This object is very cool!
     """
-    def __init__(self, m, e0 = 0.1): pass
+    def __init__(self, m, e0 = 0.1, *args): pass
 class MomentumSGDTrainer(Trainer):
-    def __init__(self, m, e0 = 0.01, mom = 0.9): pass
+    def __init__(self, m, e0 = 0.01, mom = 0.9, *args): pass
 class AdagradTrainer(Trainer):
-    def __init__(self, m, e0 = 0.1, eps = 1e-20): pass
+    def __init__(self, m, e0 = 0.1, eps = 1e-20, *args): pass
 class AdadeltaTrainer(Trainer):
-    def __init__(self, m, eps = 1e-6, rho = 0.95): pass
+    def __init__(self, m, eps = 1e-6, rho = 0.95, *args): pass
 class AdamTrainer(Trainer):
-    def __init__(self, m, alpha = 0.001, beta_1 = 0.9, beta_2 = 0.999, eps = 1e-8 ): pass
+    def __init__(self, m, alpha = 0.001, beta_1 = 0.9, beta_2 = 0.999, eps = 1e-8, *args ): pass
 
 
 class Initializer(object): pass

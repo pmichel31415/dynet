@@ -135,9 +135,9 @@ site-packages, and works without root privileges. To install the module
 to the system site-packages (for all users), or to the current `virtualenv`
 (if you are on one), run ``python setup.py install`` without this switch.
 
-You should now have a working python binding (the dynet module).
+You should now have a working python binding (the ``dynet`` module).
 
-Note however that the installation relies on the compiled dynet library
+Note however that the installation relies on the compiled DyNet library
 being in ``$PATH_TO_DYNET/build/dynet``, so make sure not to move it
 from there.
 
@@ -146,7 +146,7 @@ Now, check that everything works:
 .. code:: bash
 
     cd $PATH_TO_DYNET
-    cd pyexamples
+    cd examples/python
     python xor.py
     python rnnlm.py rnnlm.py
 
@@ -169,6 +169,51 @@ then you may need to run the following (and add it to your shell init files):
 
     export DYLD_LIBRARY_PATH=/path/to/dynet/build/dynet/:$DYLD_LIBRARY_PATH
 
+Usage
+-----
+
+There are two ways to import the dynet module :
+
+::
+
+    import dynet
+
+imports dynet and automatically initializes the global dynet parameters with the command line arguments (see the documentation_). The amount of memory allocated, GPU/CPU usage is fixed from there on.
+
+.. _documentation: commandline
+
+::
+
+    import _dynet
+    # or
+    import _gdynet # For GPU
+
+Imports dynet for CPU (resp. GPU) and doesn't initialize the global parameters. These must be initialized manually before using dynet, using one of the following :
+
+::
+
+    # Same as import dynet as dy
+    import _dynet as dy
+    dy.init()
+
+::
+
+    # Same as import dynet as dy
+    import _dynet as dy
+    # Declare a DynetParams object
+    dyparams = dy.DynetParams()
+    # Fetch the command line arguments (optional)
+    dyparams.from_args()
+    # Set some parameters manualy (see the command line arguments documentation)
+    dyparams.set_mem(2048)
+    dyparams.set_random_seed(666)
+    dyparams.set_weight_decay(1e-7)
+    dyparams.set_shared_parameters(False)
+    dyparams.set_requested_gpus(1)
+    dyparams.set_gpu_mask([0,1,1,0])
+    # Initialize with the given parameters
+    dyparams.init() # or init_from_params(dyparams)
+
 
 Anaconda Support
 ----------------
@@ -183,6 +228,8 @@ then install some necessary packages as follows:
      conda install gcc cmake boost cython
 
 After this, the build process should be the same as normal.
+
+Note that on some conda environments, people have reported build errors related to the interaction between the ``icu`` and ``boost`` packages. If you encounter this, try the solution in `this comment <https://github.com/clab/dynet/issues/268#issuecomment-278806398>`_.
 
 Windows Support
 ---------------

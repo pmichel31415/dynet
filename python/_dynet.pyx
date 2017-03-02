@@ -38,23 +38,64 @@ import os.path
 from _dynet cimport *
 cimport _dynet as dynet
 
+cdef class DynetParams:
+    cdef CDynetParams cparams
 
-cdef init(random_seed=None):
-    cdef int argc = len(sys.argv)
-    cdef char** c_argv
-    args = [bytearray(x, encoding="utf-8") for x in sys.argv]
-    c_argv = <char**>malloc(sizeof(char*) * len(args)) # TODO check failure?
-    for idx, s in enumerate(args):
-        c_argv[idx] = s
+    def __init__(self):
+        pass
 
-    if random_seed is None:
-        dynet.initialize(argc,c_argv, 0)
-    else:
-        if random_seed == 0: random_seed = 1
-        dynet.initialize(argc,c_argv, random_seed)
-    free(c_argv)
+    cpdef from_args(self, shared_parameters=None):
+        cdef int argc = len(sys.argv)
+        cdef char** c_argv
+        args = [bytearray(x, encoding="utf-8") for x in sys.argv]
+        c_argv = <char**>malloc(sizeof(char*) * len(args)) # TODO check failure?
+        for idx, s in enumerate(args):
+            c_argv[idx] = s
 
-init() # TODO: allow different random seeds
+        if shared_parameters is None:
+            self.cparams = dynet.extract_dynet_params(argc,c_argv, 0)
+        else:
+            if shared_parameters == 0: shared_parameters = 1
+            self.cparams = dynet.extract_dynet_params(argc,c_argv, shared_parameters)
+        free(c_argv)
+
+    cpdef init(self):
+        dynet.initialize(self.cparams)
+
+    cpdef set_mem(self, unsigned mem):
+        self.cparams.mem_descriptor = str(mem)
+
+    cpdef set_random_seed(self, unsigned random_seed):
+        self.cparams.random_seed = random_seed
+
+    cpdef set_weight_decay(self, float weight_decay):
+        self.cparams.weight_decay = weight_decay
+
+    cpdef set_shared_parameters(self, bool shared_parameters):
+        self.cparams.shared_parameters = shared_parameters
+
+    cpdef set_requested_gpus(self, int requested_gpus):
+        self.cparams.requested_gpus = requested_gpus
+        self.cparams.ngpus_requested = True
+        self.cparams.ids_requested = False
+    
+    cpdef set_gpu_mask(self, list gpu_mask):
+        cdef vector[int] cgpu_mask
+        for i in gpu_mask:
+            if(i!=0 and i!=1):
+                raise ValueError('gpu_mask should only contain 0 and 1s')
+            cgpu_mask.push_back(i)
+        self.cparams.gpu_mask = cgpu_mask
+        self.cparams.ngpus_requested = False
+        self.cparams.ids_requested = True
+
+def init(shared_parameters=None):
+    params=DynetParams()
+    params.from_args(shared_parameters)
+    params.init()
+
+def init_from_params(DynetParams params):
+    params.init()
 
 cdef CDim Dim(dim, unsigned int batch_size=1):
     """
@@ -73,11 +114,33 @@ cdef CDim Dim(dim, unsigned int batch_size=1):
     else:
         return CDim(cvec)
 
+cdef tuple c_dim_as_dim(CDim d):
+    """
+    Returns a tuple (dims,batch_dim) where dims is the tuple of dimensions of each batch element
+    """
+    dim = tuple([d[i] for i in range(d.ndims())])
+    dim= (dim,d.batch_elems())
+    return tuple(dim)
+
+cdef tuple c_dim_as_shape(CDim d,bool force_batch=False):
+    dim = [d[i] for i in range(d.ndims())]
+    if force_batch or d.batch_elems()>1: dim.append(d.batch_elems())
+    return tuple(dim)
+
+cdef CDim shape_as_c_dim(tuple d,bool batched = False):
+    if batched:
+        dim = d[:-1] if len(d) > 1 else (1,)
+        batch_size= d[-1]
+    else:
+        dim = d
+        batch_size = 1
+    return Dim(dim,batch_size=batch_size)
+
 cdef c_tensor_as_np(CTensor &t):
     # TODO: make more efficient, with less copy
     arr = np.array(c_as_vector(t))
-    if t.d.ndims() == 1: return arr
-    else: return arr.reshape(t.d.rows(), t.d.cols(),order='F')
+    dim = c_dim_as_shape(t.d)
+    return arr.reshape(dim,order='F')
 
 # {{{ Model / Parameters 
 cdef class Parameters:
@@ -95,8 +158,7 @@ cdef class Parameters:
         return self
 
     cpdef shape(self):
-        if self.thisptr.get().dim.ndims() == 1: return (self.thisptr.get().dim.rows())
-        return (self.thisptr.get().dim.rows(), self.thisptr.get().dim.cols())
+        return c_dim_as_shape(self.thisptr.get().dim)
 
     cpdef as_array(self):
         """
@@ -104,6 +166,13 @@ cdef class Parameters:
         """
         cdef CTensor t
         return c_tensor_as_np(self.thisptr.get().values)
+
+    cpdef grad_as_array(self):
+        """
+        Return gradient as a numpy array.
+        """
+        cdef CTensor t
+        return c_tensor_as_np(self.thisptr.get().g)
 
     # TODO: make more efficient
     cpdef load_array(self, arr):
@@ -155,9 +224,7 @@ cdef class LookupParameters:
             self.init_row(i, row)
 
     cpdef shape(self):
-        if self.thisptr.get().dim.cols() != 1:
-            return (self.thisptr.get().values.size(), self.thisptr.get().dim.rows(), self.thisptr.get().dim.cols())
-        return (self.thisptr.get().values.size(), self.thisptr.get().dim.rows())
+        return c_dim_as_shape(self.thisptr.get().all_dim)
 
     def __getitem__(self, int i):
         return lookup(self, i)
@@ -175,6 +242,15 @@ cdef class LookupParameters:
         cdef vector[CTensor] vals
         vals = self.thisptr.get().values
         return np.vstack([c_tensor_as_np(t).reshape(1,-1,order='F') for t in vals])
+
+    cpdef grad_as_array(self):
+        """
+        Return gradients as a numpy array.
+        """
+        cdef vector[CTensor] grads
+        grads = self.thisptr.get().grads
+        return np.vstack([c_tensor_as_np(t).reshape(1,-1,order='F') for t in grads])
+
 
     cpdef zero(self): self.thisptr.zero()
 
@@ -230,12 +306,12 @@ cdef class IdentityInitializer(PyInitializer):
         self.initializer = new CParameterInitIdentity()
 
 cdef class GlorotInitializer(PyInitializer):
-    def __init__(self, bool is_lookup=False):
-        self.initializer = new CParameterInitGlorot(is_lookup)
+    def __init__(self, bool is_lookup=False,float gain=1.0):
+        self.initializer = new CParameterInitGlorot(is_lookup,gain)
 
-#cdef class SaxeInitializer(PyInitializer):
-#    def __init__(self):
-#        self.initializer = new CParameterInitSaxe()
+cdef class SaxeInitializer(PyInitializer):
+   def __init__(self,scale=1.0):
+       self.initializer = new CParameterInitSaxe(scale)
 
 cdef class FromFileInitializer(PyInitializer):
     def __init__(self, string fname):
@@ -480,7 +556,7 @@ cdef int SECRET = 923148
 cdef ComputationGraph _cg = ComputationGraph(SECRET)
 
 def cg_version(): return _cg._cg_version
-def renew_cg(): return _cg.renew()
+def renew_cg(immediate_compute=False, check_validity=False): return _cg.renew(immediate_compute, check_validity)
 def print_text_graphviz(): return _cg.print_graphviz()
 def cg_checkpoint(): _cg.checkpoint()
 def cg_revert():     _cg.revert()
@@ -501,9 +577,11 @@ cdef class ComputationGraph:
     def __dealloc__(self):
         del self.thisptr
 
-    cpdef renew(self):
+    cpdef renew(self, immediate_compute=False, check_validity=False):
         del self.thisptr
         self.thisptr = new CComputationGraph()
+        if immediate_compute: self.thisptr.set_immediate_compute(immediate_compute)
+        if check_validity: self.thisptr.set_check_validity(check_validity)
         self._inputs = []
         self._cg_version += 1
         return self
@@ -572,8 +650,8 @@ cdef class ComputationGraph:
         return _vecInputExpression(self, v)
     cdef inputMatrix(self, int d1, int d2):
         return _vecInputExpression(self, vector[float](d1*d2), (d1,d2))
-    def inputMatrixLiteral(self, vector[float] v, tuple d):
-        return _vecInputExpression(self, v, d)
+    def inputMatrixLiteral(self, vector[float] v, tuple d, int batch_size=1):
+        return _vecInputExpression(self, v, d,batch_size)
     cdef lookup(self, LookupParameters p, unsigned v = 0, update=True):
         return _lookupExpression(self, p, v, update)
     cdef lookup_batch(self, LookupParameters p, vector[unsigned] vs, update=True):
@@ -628,9 +706,14 @@ cdef class Expression: #{{{
         return CExpression(self.cgp(), self.vindex)
 
     cpdef dim(self):
+        """
+        Returns a tuple (dims,batch_dim) where dims is the tuple of dimensions of each batch element
+        """
         cdef CDim d;
+        if self.cg_version != _cg._cg_version: raise RuntimeError("Stale Expression (created before renewing the Computation Graph).")
         d=self.c().dim()
-        return (d.size(), d.rows(), d.cols(), d.batch_elems())
+        return c_dim_as_dim(d)
+        # return (d.size(), d.rows(), d.cols(), d.batch_elems())
 
     def __repr__(self):
         return str(self)
@@ -693,17 +776,7 @@ cdef class Expression: #{{{
         if recalculate: self.cg().forward(self.vindex)
         t = self.cgp().get_value(self.vindex)
         dim = t.d
-        arr = np.array(c_as_vector(t))
-        if dim.batch_elems() > 1:
-            if dim.ndims() == 1:
-                arr = arr.reshape(dim.rows(), dim.batch_elems(),order='F')
-            elif dim.ndims() == 2:
-                arr = arr.reshape(dim.rows(), dim.cols(), dim.batch_elems(),order='F')
-            else:
-                assert(False)
-            return arr
-        if dim.ndims() == 2:
-            arr = arr.reshape(dim.rows(), dim.cols(),order='F')
+        arr = np.array(c_tensor_as_np(t))
         return arr
 
     cpdef value(self, recalculate=False):
@@ -711,7 +784,7 @@ cdef class Expression: #{{{
         cdef CTensor t
         if recalculate: self.cg().forward(self.vindex)
         t = self.cgp().get_value(self.vindex)
-        if t.d.ndims() == 2:
+        if t.d.ndims() >= 2:
             return self.npvalue()
         vec = self.vec_value()
         if len(vec) == 1: return vec[0]
@@ -781,13 +854,13 @@ def scalarInput(float s):
 
 cdef class _vecInputExpression(Expression):
     cdef FloatVectorValue val
-    def __cinit__(self, ComputationGraph g, vector[float] val, dim=None):
+    def __cinit__(self, ComputationGraph g, vector[float] val, dim=None,batch_size=1):
         self.val = FloatVectorValue(val)
         if dim is None: dim = self.val.size()
         #self.cg = g.thisptr
         self.cg_version = g.version()
         cdef CExpression e
-        e = c_input(self.cgp()[0], Dim(dim), self.val.addr())
+        e = c_input(self.cgp()[0], Dim(dim,batch_size=batch_size), self.val.addr())
         self.vindex = e.i
         g._inputs.append(self)
     def set(self, vector[float] data):
@@ -804,7 +877,47 @@ def matInput(int d1, int d2):
     return _cg.inputMatrix(d1, d2)
 
 def inputMatrix(vector[float] v, tuple d):
+    """
+
+    inputMatrix(vector[float] v, tuple d)
+
+    Create a matrix literal.
+    First argument is a list of floats (or a flat numpy array).
+    Second argument is a dimension.
+    Returns: an expression.
+    Usage example:
+
+        x = inputMatrix([1,2,3,4,5,6],(2,3))
+        x.npvalue()
+        --> 
+        array([[ 1.,  3.,  5.],
+               [ 2.,  4.,  6.]])
+    """
     return _cg.inputMatrixLiteral(v, d)
+
+def inputTensor(arr,bool batched=False):
+    """
+    Creates a tensor expression based on a numpy array or a list.
+    The dimension is inferred from the shape of the input.
+    if batched=True, the last dimension is used as a batch dimension
+    if arr is a list of numpy ndarrays, this returns a batched expression where the batch elements are the elements of the list
+    """
+    if isinstance(arr,list):
+        if all([isinstance(x,np.ndarray) for x in arr]):
+            arr = np.stack(arr,axis=-1)
+            batched=True
+        else:
+            arr=np.asarray(arr,dtype=float)
+    if not isinstance(arr,np.ndarray):
+        raise TypeError("Input Tensor should be a numpy.ndarray or a valid list pf floats")
+    if batched:
+        dim = arr.shape[:-1] if len(arr.shape) > 1 else (1,)
+        batch_size= arr.shape[-1]
+    else:
+        dim = arr.shape
+        batch_size= 1
+    arr = arr.flatten(order='F')
+    return _cg.inputMatrixLiteral(arr, dim,batch_size=batch_size)
 
 cdef class _lookupExpression(Expression):
     cdef UnsignedValue val
@@ -903,12 +1016,15 @@ cpdef Expression random_bernoulli(dim, float p, float scale=1.0, int batch_size=
 cpdef Expression random_uniform(dim, float left, float right, int batch_size=1): return Expression.from_cexpr(_cg.version(), c_random_uniform(_cg.thisptr[0], CDim(dim, batch_size), left, right))
 
 cpdef Expression nobackprop(Expression x): return Expression.from_cexpr(x.cg_version, c_nobackprop(x.c()))
+cpdef Expression flip_gradient(Expression x): return Expression.from_cexpr(x.cg_version, c_flip_gradient(x.c()))
 
 # binary-exp
 cpdef Expression cdiv(Expression x, Expression y): ensure_freshness(y); return Expression.from_cexpr(x.cg_version, c_cdiv(x.c(), y.c()))
 cpdef Expression cmult(Expression x, Expression y): ensure_freshness(y); return Expression.from_cexpr(x.cg_version, c_cmult(x.c(), y.c()))
 cpdef Expression colwise_add(Expression x, Expression y): ensure_freshness(y); return Expression.from_cexpr(x.cg_version, c_colwise_add(x.c(), y.c()))
 
+cpdef Expression inverse(Expression x): return Expression.from_cexpr(x.cg_version, c_inverse(x.c()))
+cpdef Expression logdet(Expression x): return Expression.from_cexpr(x.cg_version, c_logdet(x.c()))
 cpdef Expression trace_of_product(Expression x, Expression y): ensure_freshness(y); return Expression.from_cexpr(x.cg_version, c_trace_of_product(x.c(), y.c()))
 cpdef Expression dot_product(Expression x, Expression y): ensure_freshness(y); return Expression.from_cexpr(x.cg_version, c_dot_product(x.c(), y.c()))
 cpdef Expression squared_norm(Expression x): return Expression.from_cexpr(x.cg_version, c_squared_norm(x.c()))

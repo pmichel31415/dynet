@@ -744,23 +744,26 @@ Expression colwise_add(const Expression& x, const Expression& bias);
 /**
  * \ingroup lossoperations
  * \brief Softmax
- * \details The softmax function, which sets each element to be e^{x[i]}/{sum_j e^{x[j]}}.
+ * \details The softmax function normalizes each column to ensure that all
+ *          values are between 0 and 1 and add to one by applying the
+ *          e^{x[i]}/{sum_j e^{x[j]}}.
  * 
- * \param x A vector
+ * \param x A vector or matrix
  * 
- * \return A vector after calculating the softmax
+ * \return A vector or matrix after calculating the softmax
  */
 Expression softmax(const Expression& x);
 
 /**
  * \ingroup lossoperations
  * \brief Log softmax
- * \details The log of the softmax function, which sets each element to be 
- *          log( e^{x[i]}/{sum_j e^{x[j]}} ).
+ * \details The log softmax function normalizes each column to ensure that all
+ *          values are between 0 and 1 and add to one by applying the
+ *          e^{x[i]}/{sum_j e^{x[j]}}, then takes the log
  * 
- * \param x A vector
+ * \param x A vector or matrix
  * 
- * \return A vector after calculating the log softmax
+ * \return A vector or matrix after calculating the log softmax
  */
 Expression log_softmax(const Expression& x);
 
@@ -1087,6 +1090,18 @@ Expression nobackprop(const Expression& x);
 
 /**
  * \ingroup flowoperations
+ * \brief Negative backprop 
+ * \details This node has no effect on the forward pass, but takes negative on backprop process. 
+ *          This operation is widely used in adversarial networks.
+ *          
+ * \param x The input expression
+ * 
+ * \return An output expression containing the same as input (only effects on backprop process)
+ */ 
+Expression flip_gradient(const Expression& x);  
+  
+/**
+ * \ingroup flowoperations
  * \brief Reshape to another size
  * \details This node reshapes a tensor to another size, without changing the
  *          underlying layout of the data. The layout of the data in DyNet is
@@ -1105,7 +1120,7 @@ Expression nobackprop(const Expression& x);
  *    \f$
  *      \begin{pmatrix}
  *        x_{1,1} & x_{3,1} & x_{2,2} & x_{1,3} & x_{3,3} & x_{2,4} \\
- *        x_{1,2} & x_{1,2} & x_{3,2} & x_{2,3} & x_{1,4} & x_{3,4} \\
+ *        x_{2,1} & x_{1,2} & x_{3,2} & x_{2,3} & x_{1,4} & x_{3,4} \\
  *      \end{pmatrix}
  *    \f$
  *
@@ -1378,13 +1393,53 @@ Expression contract3d_1d(const Expression& x, const Expression& y, const Express
 // Linear algebra operations                  //
 ////////////////////////////////////////////////
 
-// matrix inverse
+/**
+ * \ingroup linalgoperations
+ * \brief Matrix Inverse
+ * \details Takes the inverse of a matrix (not implemented on GPU yet, although
+ *          contributions are welcome: https://github.com/clab/dynet/issues/158).
+ *          Note that back-propagating through an inverted matrix can also be the
+ *          source of stability problems sometimes.
+ * 
+ * \param x A square matrix
+ * 
+ * \return The inverse of the matrix
+ */
 Expression inverse(const Expression& x);
+
+/**
+ * \ingroup linalgoperations
+ * \brief Log determinant
+ * \details Takes the log of the determinant of a matrix.
+ *          (not implemented on GPU yet, although
+ *          contributions are welcome: https://github.com/clab/dynet/issues/158).
+ * 
+ * \param x A square matrix
+ * 
+ * \return The log of its determinant
+ */
 Expression logdet(const Expression& x);
 
+/**
+ * \ingroup linalgoperations
+ * \brief Trace of Matrix Product
+ * \details Takes the trace of the product of matrices.
+ *          (not implemented on GPU yet, although
+ *          contributions are welcome: https://github.com/clab/dynet/issues/158).
+ * 
+ * \param x1 A matrix
+ * \param x2 Another matrix
+ * 
+ * \return trace(x1 * x2)
+ */
 Expression trace_of_product(const Expression& x, const Expression& y);
 
 
-} }
+}
+// Because expressions are now such a fundamental part of DyNet it doesn't
+// make much sense to keep them in separate namespaces, so we import expr
+// to the dynet namespace.
+using namespace expr;
+}
 
 #endif

@@ -22,11 +22,13 @@ function(find_mkl)
             PATHS ${MKL_ROOT} ${MKL_ROOT}/include)
   find_library(MKL_CORE_LIB NAMES mkl_intel_lp64 mkl_intel_thread mkl_core
                PATHS ${MKL_ROOT} ${MKL_ROOT}/lib/${MKL_ARCH}
+                     ${MKL_ROOT}/lib #OSX
                DOC "MKL core library path")
 
   find_library(MKL_COMPILER_LIB NAMES iomp5 libiomp5md
                PATHS ${MKL_ROOT} ${MKL_ROOT}/../compiler/lib/${MKL_ARCH}              #Windows
                      ${MKL_ROOT}/../compilers_and_libraries/linux/lib/${MKL_ARCH}_lin #Linux
+                     ${MKL_ROOT}/../compilers_and_libraries/mac/lib                   #OSX
                DOC "MKL compiler lib (for threaded MKL)")
 
   if(MKL_INCLUDE_DIR AND MKL_CORE_LIB AND MKL_COMPILER_LIB)
@@ -67,7 +69,7 @@ endif()
 
 ######## Compiler-specific options
 if(MSVC)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -W1 -DEIGEN_HAS_C99_MATH /MP")   # -Wall produces 20k warnings
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -W1 /MP")   # -Wall produces 20k warnings. Enable parallel compilation
 else()
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -funroll-loops -fno-finite-math-only -Wall -Wno-missing-braces -std=c++11 -Ofast -g -march=native")
 endif()
@@ -100,11 +102,13 @@ endfunction()
 # look for Boost
 if(DEFINED ENV{BOOST_ROOT})
   set(Boost_NO_SYSTEM_PATHS ON)
-  get_filename_component(Boost_INCLUDE_DIR "${Boost_INCLUDE_DIR}" REALPATH BASE_DIR "${CMAKE_BINARY_DIR}")
+  if(DEFINED ${Boost_INCLUDE_DIR})
+    get_filename_component(Boost_INCLUDE_DIR "${Boost_INCLUDE_DIR}" REALPATH BASE_DIR "${CMAKE_BINARY_DIR}")
+  endif()
 endif()
 set(Boost_REALPATH ON)
-message("-- Boost dir is " ${Boost_INCLUDE_DIR})
 find_package(Boost COMPONENTS program_options regex serialization REQUIRED)
+message("-- Boost dir is " ${Boost_INCLUDE_DIR})
 include_directories(${Boost_INCLUDE_DIR})
 if(MSVC)
   # Boost does auto-linking when using a compiler like Microsoft Visual C++, we just need to help it find the libraries
@@ -152,9 +156,9 @@ if (WITH_CUDA_BACKEND)
 endif()
 
 # look for Eigen
-find_package(Eigen3 REQUIRED)
 get_filename_component(EIGEN3_INCLUDE_DIR "${EIGEN3_INCLUDE_DIR}" REALPATH BASE_DIR "${CMAKE_BINARY_DIR}")
 message("-- Eigen dir is " ${EIGEN3_INCLUDE_DIR})
+find_package(Eigen3 REQUIRED)
 include_directories(${EIGEN3_INCLUDE_DIR})
 
 FIND_PACKAGE(Threads REQUIRED)
