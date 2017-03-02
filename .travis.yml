@@ -14,7 +14,7 @@ matrix:
           packages:
             - gcc-4.8
             - g++-4.8
-            - python-2.7
+            - python
             - python-dev
             - python-setuptools
             - python-numpy
