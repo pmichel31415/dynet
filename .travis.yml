@@ -4,7 +4,7 @@ matrix:
   include:
     - os: linux
       compiler: gcc
-      env: CXX=g++-4.8 CC=gcc-4.8 PYTHON=python PYSUF='' PYVER=2.7
+      env: CXX=g++-4.8 CC=gcc-4.8 PYTHON=python2.7 PYSUF='' PYVER=2.7
       dist: trusty
       addons:
         apt:
@@ -14,8 +14,8 @@ matrix:
           packages:
             - gcc-4.8
             - g++-4.8
-            - python
-            - python-dev
+            - python$PYVER
+            - python$PYVER-dev
             - python-setuptools
             - python-numpy
             - libboost-filesystem1.55-dev
@@ -32,13 +32,13 @@ install:
   - mkdir build && cd build
   - cmake .. 
   - sudo make install
-  - sudo pip install cython
+  - sudo pip$PYVER install cython
 
 before_script:
   - cd $TRAVIS_BUILD_DIR
   - mkdir build
   - cd build
-  - cmake .. -DEIGEN3_INCLUDE_DIR=/usr/local/include/eigen3 -DPYTHON=`which python`
+  - cmake .. -DEIGEN3_INCLUDE_DIR=/usr/local/include/eigen3 -DPYTHON=$PYTHON
 
 after_failure:
   - cat $TRAVIS_BUILD_DIR/build/CMakeFiles/CMakeError.log
