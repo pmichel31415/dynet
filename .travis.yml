@@ -4,7 +4,7 @@ matrix:
   include:
     - os: linux
       compiler: gcc
-      env: CXX=g++-4.8 CC=gcc-4.8 PYTHON=python2.7 PYSUF='' PYVER=2.7
+      env: CXX=g++-4.8 CC=gcc-4.8 PYTHON=python PYSUF='' PYVER=2.7
       dist: trusty
       addons:
         apt:
