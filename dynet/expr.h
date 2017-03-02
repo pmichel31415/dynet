@@ -1090,6 +1090,18 @@ Expression nobackprop(const Expression& x);
 
 /**
  * \ingroup flowoperations
+ * \brief Negative backprop 
+ * \details This node has no effect on the forward pass, but takes negative on backprop process. 
+ *          This operation is widely used in adversarial networks.
+ *          
+ * \param x The input expression
+ * 
+ * \return An output expression containing the same as input (only effects on backprop process)
+ */ 
+Expression flip_gradient(const Expression& x);  
+  
+/**
+ * \ingroup flowoperations
  * \brief Reshape to another size
  * \details This node reshapes a tensor to another size, without changing the
  *          underlying layout of the data. The layout of the data in DyNet is
@@ -1381,10 +1393,45 @@ Expression contract3d_1d(const Expression& x, const Expression& y, const Express
 // Linear algebra operations                  //
 ////////////////////////////////////////////////
 
-// matrix inverse
+/**
+ * \ingroup linalgoperations
+ * \brief Matrix Inverse
+ * \details Takes the inverse of a matrix (not implemented on GPU yet, although
+ *          contributions are welcome: https://github.com/clab/dynet/issues/158).
+ *          Note that back-propagating through an inverted matrix can also be the
+ *          source of stability problems sometimes.
+ * 
+ * \param x A square matrix
+ * 
+ * \return The inverse of the matrix
+ */
 Expression inverse(const Expression& x);
+
+/**
+ * \ingroup linalgoperations
+ * \brief Log determinant
+ * \details Takes the log of the determinant of a matrix.
+ *          (not implemented on GPU yet, although
+ *          contributions are welcome: https://github.com/clab/dynet/issues/158).
+ * 
+ * \param x A square matrix
+ * 
+ * \return The log of its determinant
+ */
 Expression logdet(const Expression& x);
 
+/**
+ * \ingroup linalgoperations
+ * \brief Trace of Matrix Product
+ * \details Takes the trace of the product of matrices.
+ *          (not implemented on GPU yet, although
+ *          contributions are welcome: https://github.com/clab/dynet/issues/158).
+ * 
+ * \param x1 A matrix
+ * \param x2 Another matrix
+ * 
+ * \return trace(x1 * x2)
+ */
 Expression trace_of_product(const Expression& x, const Expression& y);
 
 
