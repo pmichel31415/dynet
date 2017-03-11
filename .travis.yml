@@ -6,7 +6,7 @@ matrix:
   include:
     - os: linux
       compiler: gcc
-      env: CXX=g++-4.8 CC=gcc-4.8 CONDA_PACKAGES="numpy cython"
+      env: CXX=g++-4.8 CC=gcc-4.8 PYTHON=python PYVER=2.7 CONDA_PACKAGES="numpy cython"
       dist: trusty
       addons:
         apt:
@@ -27,7 +27,7 @@ matrix:
 before_install:
   # We do this conditionally because it saves us some downloading if the
   # version is the same.
-  - if [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then
+  - if [[ "$PYVER" == "2.7" ]]; then
       wget https://repo.continuum.io/miniconda/Miniconda2-latest-Linux-x86_64.sh -O miniconda.sh;
     else
       wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
@@ -53,7 +53,7 @@ before_script:
   - cd $TRAVIS_BUILD_DIR
   - mkdir build
   - cd build
-  - conda create -q -n dynet-environment python=$TRAVIS_PYTHON_VERSION $CONDA_PACKAGES
+  - conda create -q -n dynet-environment python=$PYVER $CONDA_PACKAGES
   - source activate dynet-environment
   - cmake .. -DEIGEN3_INCLUDE_DIR=/usr/local/include/eigen3 -DPYTHON=`which python`
 
