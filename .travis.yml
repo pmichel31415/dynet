@@ -4,7 +4,7 @@ matrix:
   include:
     - os: linux
       compiler: gcc
-      env: CXX=g++-4.8 CC=gcc-4.8 PYTHON=python PYSUF='' PYVER=2.7
+      env: CXX=g++-4.8 CC=gcc-4.8 CONDA_PACKAGES="numpy cython"
       dist: trusty
       addons:
         apt:
@@ -22,6 +22,23 @@ matrix:
     - os: osx
       compiler: clang
 
+- before_install
+  - sudo apt-get update
+  # We do this conditionally because it saves us some downloading if the
+  # version is the same.
+  - if [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then
+      wget https://repo.continuum.io/miniconda/Miniconda2-latest-Linux-x86_64.sh -O miniconda.sh;
+    else
+      wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
+    fi
+  - bash miniconda.sh -b -p $HOME/miniconda
+  - export PATH="$HOME/miniconda/bin:$PATH"
+  - hash -r
+  - conda config --set always_yes yes --set changeps1 no
+  - conda update -q conda
+  # Useful for debugging any issues with conda
+  - conda info -a
+  
 install:
   - hg clone https://bitbucket.org/eigen/eigen/ -r 346ecdb
   - cd eigen
@@ -29,18 +46,15 @@ install:
   - cmake .. 
   - sudo make install
   - cd ../..
-  - sudo apt-get install $PYTHON-dev
-  - sudo apt-get install $PYTHON-setuptools
-  - sudo apt-get install $PYTHON-numpy
-  - sudo easy_install$PYSUF pip
-  - sudo pip$PYVER install cython
 
 
 before_script:
   - cd $TRAVIS_BUILD_DIR
   - mkdir build
   - cd build
-  - cmake .. -DEIGEN3_INCLUDE_DIR=/usr/local/include/eigen3 -DPYTHON=$PYTHON
+  - conda create -q -n dynet-environment python=$TRAVIS_PYTHON_VERSION dep1 dep2 ...
+  - source activate dynet-environment
+  - cmake .. -DEIGEN3_INCLUDE_DIR=/usr/local/include/eigen3 -DPYTHON=`which python`
 
 after_failure:
   - cat $TRAVIS_BUILD_DIR/build/CMakeFiles/CMakeError.log
