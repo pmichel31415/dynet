@@ -65,4 +65,4 @@ script:
   - if [[ $TRAVIS_OS_NAME == "osx" ]]; then make -j$(sysctl -n hw.ncpu); fi
   - make test
   - cd python
-  - sudo python setup.py install
+  - python setup.py install --user
