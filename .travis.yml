@@ -1,5 +1,9 @@
 language: cpp
 
+env: 
+  - PYVER=3.4 PYNUM=3
+  - PYVER=2.7 PYNUM=2
+
 matrix:
   include:
     - os: linux
@@ -22,8 +26,7 @@ matrix:
     - os: osx
       compiler: clang
       env: PYTHON=python  CONDA_PACKAGES="numpy cython"
-    - env: PYVER=3.4 PYNUM=3
-    - env: PYVER=2.7 PYNUM=2
+
     
 before_install:
   # We do this conditionally because it saves us some downloading if the
