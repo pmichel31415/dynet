@@ -21,11 +21,10 @@ matrix:
             - libboost-regex1.55-dev
     - os: osx
       compiler: clang
-      env: PYTHON=python CONDA_PACKAGES="numpy cython"
-  env: 
-    - PYVER=2.7 PYNUM=2
-    - PYVER=3.4 PYNUM=3
-
+      env: PYTHON=python  CONDA_PACKAGES="numpy cython"
+    -env: PYVER=3.4 PYNUM=3
+    -env: PYVER=2.7 PYNUM=2
+    
 before_install:
   # We do this conditionally because it saves us some downloading if the
   # version is the same.
