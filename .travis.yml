@@ -1,14 +1,12 @@
 language: cpp
 
-env: 
-  - PYVER=3.4 PYNUM=3
-  - PYVER=2.7 PYNUM=2
-
 matrix:
   include:
     - os: linux
       compiler: gcc
-      env: CXX=g++-4.8 CC=gcc-4.8 PYTHON=python CONDA_PACKAGES="numpy cython"
+      env: 
+        - CXX=g++-4.8 CC=gcc-4.8 PYVER=3.4 PYNUM=3 PYTHON=python CONDA_PACKAGES="numpy cython"
+        - CXX=g++-4.8 CC=gcc-4.8 PYVER=2.7 PYNUM=2 PYTHON=python CONDA_PACKAGES="numpy cython"
       dist: trusty
       addons:
         apt:
@@ -25,7 +23,9 @@ matrix:
             - libboost-regex1.55-dev
     - os: osx
       compiler: clang
-      env: PYTHON=python  CONDA_PACKAGES="numpy cython"
+      env:
+        - PYTHON=python PYVER=3.4 PYNUM=3 CONDA_PACKAGES="numpy cython"
+        - PYTHON=python PYVER=2.7 PYNUM=2 CONDA_PACKAGES="numpy cython"
 
     
 before_install:
